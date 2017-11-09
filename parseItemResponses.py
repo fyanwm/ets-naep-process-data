@@ -85,7 +85,7 @@ def parseXMLContent(node):
     return r
 
 def MathMLExtraction(s):
-    if not isinstance(js, basestring):
+    if not isinstance(s, basestring):
         return None
     return s
  #   if(s.find('</mn></math>')!=-1):
@@ -181,14 +181,15 @@ def parseBQChoice(s):
     except:
         return None
     for records in RespDict["Response"]:
-        if(records["PartId"]):
-            partID = records["PartId"].encode("utf-8")
-        elif(records["GroupId"]):
-            partID = records["GroupId"].encode("utf-8")
+        if("PartId" in records):
+            partID = records["PartId"]
+        elif("GroupId" in records):
+            partID = records["GroupId"]
  #       if (records.get("Selected") == None):
  #0           answerlist.append({partID: records["Response"]})
         for record in records["Response"]:
-            if(record["Selected"]==True):
+            if("Selected" in record):
+                if(record["Selected"]==True):
                     # copying over the PartId from the parent object
                     #record["PartId"] = records["PartId"]
                     #answerlist.append(record)
@@ -196,7 +197,9 @@ def parseBQChoice(s):
                     #Simplified output: PartId-val
  #                   answerlist.append("{}-{}".format(records["PartId"], record["val"]))
 #                    answerlist.append([{'PartID':records["PartId"]},{'value':record["val"]}])
-                answerlist.append({partID: record["val"]})
+                    answerlist.append({partID: record["val"]})
+            else:
+                answerlist.append({partID: record})
 
     return answerlist
 
@@ -250,14 +253,15 @@ def parseBQNumeric(s):
     return answerlist 
 
 def parseComposite(s):
-    f=open('C:/Users/fyan/OneDrive - Educational Testing Service/Documents/NAEP Process Data/check.txt','a')
-#    print ('in Composite')
     answerlist=[]
     try:
         RespDict = json.loads(s)
     except:
         return None
     for records in RespDict["Response"]:
+        if(type(records)!= dict):
+            warnings.warn("There is node whose type is not dict")
+            continue
         if('Type' in records):
             for record in records["Response"]:
                 if(record is None):
@@ -286,8 +290,6 @@ def parseComposite(s):
                             value='X'
                         else:
                             value=record["val"]
-
- #                       answerlist.append("{}-{}".format(records["PartId"], value))
                         answerlist.append({records["PartId"].encode('ascii'):value})
         else:
             warnings.warn("Type is missing for Part ID", records['PartId'])
@@ -344,11 +346,7 @@ def parseExtendedText(s):
  #   if (RespDict["Response"]):
     if (text):
         if (text.find("<math xmlns=") != -1):  # mathml
- #           if (RespDict["Response"][0].find("<math xmlns=") != -1):  # mathml
- #               val = MathMLExtraction(RespDict["Response"][0])
-  #              val = MathMLExtraction(RespDict["Response"][0])
                 val = MathMLExtraction(text)
-#                answerlist.append(val)
                 answerlist.append({'Response':val})
         else:
 #                content=lxml.html.fromstring(RespDict["Response"][0].lstrip('[').rstrip(']')).text_content()
@@ -460,7 +458,7 @@ def parseSQNotAnswered(s):
     except:
         return None
     answerlist = []
-    if(s.find('PartId')!=-1):
+    if(s.find('PartId')!=-1 or s.find('GroupId')!=-1):
         print ('PartID?')
         if(s.find("Selected")!=-1):
             answerlist=parseBQChoice(s)
@@ -500,22 +498,16 @@ def parseBlockReview(s):
 #combination of BQChoice, MC and Interactive
     print('In BlcokReview')
     answerlist = []
-    print s
     if (s.find('PartId') != -1 or s.find('GroupId') != -1):
         if(s.find('Type')!=-1):
             answerlist=parseComposite(s)
         else:
-            if(s.find("Selected")!=-1):
-                answerlist=parseBQChoice(s)
-            else:
-                answerlist=parseFillInBlank(s)
+            answerlist=parseBQChoice(s)
     elif(s.find('source')!=-1):
         answerlist=parseMatchMS(s)
-    elif(s.find('"stateData"')!=-1):
+    elif(s.find('"responseData"')!=-1):
         RespDict = json.loads(s)
-        statedata=RespDict['stateData']
-#        answerlist.append(statedata['responseData'])
-        answerlist.append({'Response':statedata['responseData']})
+        answerlist.append({'Response':RespDict['responseData']})
     elif(s.find("Selected")!=-1):
         answerlist=parseMC(s)
     else:
